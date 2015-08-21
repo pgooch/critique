@@ -2,8 +2,8 @@
 Contributors: Phillip.Gooch
 Tags: reviews, scores, grades
 Requires at least: 3.4
-Tested up to: 4.0
-Stable tag: 1.1.3
+Tested up to: 4.3
+Stable tag: 1.3.4
 License: GNU General Public License v2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,12 @@ Critique is a simple review plugin that can add single or multi sectioned review
 
 The front end display has numerous classes added to various elements and should be easy to adjust to match your specific sites theme. The default styles are basic and may work well with your existing theme. 
 
+Since version 1.2.3 you can place the critique score box anywhere using the shortcode [critique_score], additional details on the settings page.
+
 _Note: If in the future you change your scale it will not retroactively effect your old critiques, so if for the first year you were using a 5 star system, then switch to a # out of 100 system, the 5 star reviews will be grandfathered in._
+
+== Upgrade Notice ==
+If you are upgrading from a version prior to 1.2.3 you will need to re-select your "Display Options" setting. 
 
 == Installation ==
 
@@ -47,6 +52,13 @@ Probably, let me know and I'll see if I can work it in there.
 
 == Changelog ==
 
+#### 1.3.4
+ + Confirmed WordPress 4.3 compatibility.
+ + Fixed a bug that could cause a divide by 0 notice to show.
+ + Fixed a bug that would cause it to render the overview on a single page when "Show overall average in short posts" was selected.
+ + Added (microdata)[https://schema.org/Review] for reviews if the Overall is enabled. Changes to this feature will be implemented based on feedback. 
+#### 1.2.3
+ + Added support for shortcodes to display the critique score box and the option to disable the default score box placement.
 #### 1.1.3
  + Fixed a bug that would cause extra backslashes in the style and script paths (although style and scripts still loaded properly).
  + Added pointer styles to the admin side review selection boxes to make it more appeant you can click on them to select a score.
