@@ -2,7 +2,7 @@
 Contributors: Phillip.Gooch
 Tags: reviews, scores, grades
 Requires at least: 3.4
-Tested up to: 4.6
+Tested up to: 4.9
 Stable tag: 1.3.4
 License: GNU General Public License v2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
