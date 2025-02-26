@@ -73,4 +73,32 @@ jQuery(document).ready(function(){
 		$(this).closest('tr').find('input').val(value).trigger('blur');
 	});
 
+	// A new method of saving the metabox data that works with Gutenberg.
+	$('body').on('click','.components-button.editor-post-publish-button__button', ()=>{
+		let saveObj = {
+			critique_action: 'ajax_save',
+			review: {},
+			scale: '',
+			post_id: parseInt($("#post_ID").val()),
+			_nonce: $('#critique-nonce [name="_wpnonce"]').val(),
+			_ref: $('#critique-nonce [name="_wp_http_referer"]').val(),
+		}
+		// Load the data
+		document.querySelectorAll('[name^=critique_scorebox').forEach((input)=>{
+			if( input.name == 'critique_scorebox[scale]'){
+				saveObj.scale = input.value
+			}else{
+				saveObj.review[input.name.substr(26, input.name.length-27)] = input.value
+			}
+		});
+		// Save the metabox data
+		$.ajax( {
+			url: wpApiSettings.root + 'wp/v2/posts/1',
+			method: 'POST',
+			beforeSend: function ( xhr ) {
+				xhr.setRequestHeader( 'X-WP-Nonce', wpApiSettings.nonce );
+			},
+			data:saveObj
+		} );
+	})
 });

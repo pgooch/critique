@@ -2,8 +2,8 @@
 Contributors: Phillip.Gooch
 Tags: reviews, scores, grades
 Requires at least: 3.4
-Tested up to: 4.9
-Stable tag: 1.3.4
+Tested up to: 6.7
+Stable tag: 1.4.4
 License: GNU General Public License v2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,11 @@ Probably, let me know and I'll see if I can work it in there.
 
 == Changelog ==
 
+#### 1.4.4
+ + Updated to modern wordpress plugin standards.
+ + Fixed the broken default review scale.
+ + Updated the code used to save the metabox to work with the non-classical editor.
+ + Updated the donate link.
 #### 1.3.4
  + Confirmed WordPress 4.3 compatibility.
  + Fixed a bug that could cause a divide by 0 notice to show.

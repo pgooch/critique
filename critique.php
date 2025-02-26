@@ -3,10 +3,10 @@
 Plugin Name: Critique
 Plugin URI: http://fatfolderdesign.com/critique/
 Description: Critique is a simple review platform with the power to do what you need.
-Version: 1.3.4
+Version: 1.4.4
 Author: Phillip Gooch
-Author URI: mailto:phillip.gooch@gmail.com
-License: Undecided
+Author URI: https://pgooch.com
+License: GNU General Public License v2
 */
 
 class critique {
@@ -38,7 +38,7 @@ class critique {
 				'page' => 'off',
 				'attachment' => 'off',
 			),
-			'scale' => '10-stars',
+			'scale' => '5-stars',
 			'sections' => '',
 			'add_average' => 'off',
 			'add_to_blog' => 'on',
@@ -60,7 +60,7 @@ class critique {
 		// Add the meta box (determins if it's the appropriate section and all that in the function)
 		add_action('add_meta_boxes',array($this,'init_metabox'));
 		// This action will save the critique metabox data (IE the score)
-		add_action('save_post',array($this,'save_metabox'));
+		add_action('save_post',array($this,'save_metabox'),10,3);
 		add_action('edit_attachment',array($this,'save_metabox'));
 		// These filters are used to add the critique data to the post 
 		add_filter('the_content',array($this,'add_to_post'));
@@ -71,17 +71,17 @@ class critique {
 	public function admin_enqueued(){
 		// Load the admin scripts and styles where needed
 		// JS
-		wp_enqueue_script('critique_admin_js',plugin_dir_url( __FILE__ ).'admin.js');
+		wp_enqueue_script('critique_admin_js',plugin_dir_url( __FILE__ ).'admin.js',[],time(),'all');
 		// CSS
-		wp_enqueue_style('critique_admin_css',plugin_dir_url( __FILE__ ).'admin.css');
+		wp_enqueue_style('critique_admin_css',plugin_dir_url( __FILE__ ).'admin.css',[],'1.4.4','all');
 		wp_enqueue_style('critique_admin_css');
-		wp_enqueue_style('critique_admin_font_css',plugin_dir_url( __FILE__ ).'fontello/css/critique.css');
+		wp_enqueue_style('critique_admin_font_css',plugin_dir_url( __FILE__ ).'fontello/css/critique.css',[],'1.4.4','all');
 		wp_enqueue_style('critique_admin_font_css');
 	}
 	public function enqueued(){
 		// Load the regular scripts and styles where needed
 		// CSS
-		wp_enqueue_style('critique_font_css',plugin_dir_url( __FILE__ ).'fontello/css/critique.css');
+		wp_enqueue_style('critique_font_css',plugin_dir_url( __FILE__ ).'fontello/css/critique.css',[],'1.4.4','all');
 		wp_enqueue_style('critique_font_css');
 		wp_enqueue_style('critique_css',plugin_dir_url( __FILE__ ).'critique.css',array(),time());
 		wp_enqueue_style('critique_css');
@@ -93,12 +93,17 @@ class critique {
 	}
 	public function settings_page(){
 		// Save the settings if sending post data
-		if(isset($_POST['critique_action'])&&$_POST['critique_action']=='critique_update'){
-			echo '<div id="setting-error-settings_updated" class="updated settings-error"><p><strong>Settings saved.</strong></p></div>';
-			unset($_POST['critique_action']);
-			$this->save_settings($_POST);
+		if(isset($_POST['critique_action'])&&$_POST['critique_action']=='critique_update'&&current_user_can('manage_options')){
+			if(check_admin_referer( 'updating-critique-settings' )){
+				unset($_POST['critique_action']);
+				$this->save_settings($_POST);
+				add_settings_error( 'critique-messages', 'save_message', 'Settings Updated.', 'success' );
+			}else{
+				add_settings_error( 'critique-messages', 'save_message', 'There was an error updating the settings.', 'error' );
+			}
 		}
 		// Load Settings Page, kept externally for brevity's sake
+		settings_errors( 'critique-messages' );
 		require_once('settings.php');
 	}
 
@@ -117,6 +122,14 @@ class critique {
 		// Load the saved scorebox (if there is one)
 		$saved_scorebox = get_post_meta($post->ID,'critique_score',true);
 		$saved_scorebox = json_decode($saved_scorebox,true);
+
+		// Make sure there is one, create dummy version if there isn't
+		if( !is_array($saved_scorebox) ){
+			$saved_scorebox = [
+				'scale' => '',
+				'review' => [],
+			];
+		}
 		// Look at the saves scorebox, if there is one, and has a scale, override the settings for this metabox to use the old scale (to prevent a good 5 star become a mediocre 10 star)
 		if(is_array($saved_scorebox)&&isset($saved_scorebox['scale'])&&$saved_scorebox['scale']!=''){
 			$settings['scale'] = $saved_scorebox['scale'];
@@ -128,7 +141,7 @@ class critique {
 			$sections[$n] = trim($section);
 		}
 		// Look through the saved scorebox, if it contains a missing section not in $sections add it
-		if(is_array($saved_scorebox['review'])){
+		if(isset($saved_scorebox['review']) && is_array($saved_scorebox['review'])){
 			foreach($saved_scorebox['review'] as $section => $score){
 				if(!in_array($section,$sections)){
 					$sections[] = $section;
@@ -166,45 +179,48 @@ class critique {
 				echo '<tr'.($overal_average_added&&$n+1==count($sections)?' class="overall-average-line"':'').'>';
 					// If there is a section title, display it, otherwise it's an uneeded element
 					if(trim($section)!=''){
-						echo '<th>'.$section.'</th>';
+						echo '<th>'.esc_html($section).'</th>';
 					}else{ // If the section is blank then set it to the $n so it can still load the score (but no need for the th)
 						$section = $n;
 					}
 					// Determine which input to display in the ratebox
-					echo '<td class="critique-metabox-scale type-'.$settings['scale'].'" nowrap>';
+					echo '<td class="critique-metabox-scale type-'.esc_attr($settings['scale']).'" nowrap>';
 						switch($settings['scale']){
 							case '5-stars':
 								echo '<div class="critique-admin-star-container">';
 									for($star=1;$star<=$this->scales[$settings['scale']]['max'];$star++){
 										$class_mod = '';
-										if($saved_scorebox['review'][$section]-$star>=0){
+										if(isset($saved_scorebox['review'])&&isset($saved_scorebox['review'][$section])&&$saved_scorebox['review'][$section]-$star>=0){
 											$class_mod = 'full';
-										}else if($saved_scorebox['review'][$section]-$star>=-0.5){
+										}else if(isset($saved_scorebox['review'])&&isset($saved_scorebox['review'][$section])&&$saved_scorebox['review'][$section]-$star>=-0.5){
 											$class_mod = 'half';
 										}
-										echo '<i class="star icon-star '.$class_mod.'"></i>';
+										echo '<i class="star icon-star '.esc_attr($class_mod).'"></i>';
 									}
 								echo '</div>';
 							break;
 							case 'out-of-100':
-								echo '<div class="critique-admin-of100-bar"><div style="width:'.($saved_scorebox['review'][$section]==''?0:$saved_scorebox['review'][$section]).'%;"></div></div>';
+								echo '<div class="critique-admin-of100-bar"><div style="width:'.esc_attr($saved_scorebox['review'][$section]==''?0:$saved_scorebox['review'][$section]).'%;"></div></div>';
 							break;
 							default:
-								echo 'Opps, I can\'t find the right form for a "'.$settings['scale'].'" review scale.';
+								echo 'Opps, I can\'t find the right form for a "'.esc_html($settings['scale']).'" review scale.';
 							break;
 						}
 					echo '</td>';
 					echo '<td class="critique-admin-raw-value">';
 						// If it's set to have an overall and it is on the last one (and meeds the other overall reqs) then do something a bit different (overall is not saved, always derived)
 						if($overal_average_added && $n+1==count($sections)){
-							echo '<input type="number" min="0" max="'.$this->scales[$settings['scale']]['max'].'" step="'.$this->scales[$settings['scale']]['step'].'" class="critique-overall-average" disabled value="'.$saved_scorebox['review'][$section].'"/></td>';
+							echo '<input type="number" min="0" class="critique-overall-average" disabled value="'.(isset($saved_scorebox['review'][$section])?esc_attr($saved_scorebox['review'][$section]):'').'"/></td>';
 						}else{
-							echo '<input type="number" min="0" max="'.$this->scales[$settings['scale']]['max'].'" step="'.$this->scales[$settings['scale']]['step'].'" name="critique_scorebox[review]['.$section.']" value="'.$saved_scorebox['review'][$section].'"/></td>';
+							echo '<input type="number" min="0" max="'.esc_attr($this->scales[$settings['scale']]['max']).'" step="'.esc_attr($this->scales[$settings['scale']]['step']).'" name="critique_scorebox[review]['.esc_attr($section).']" value="'.(isset($saved_scorebox['review'][$section])?esc_attr($saved_scorebox['review'][$section]):'').'"/></td>';
 						}
 				echo '</tr>';
 			}
 		echo '</table>';
-		echo '<input type="hidden" name="critique_scorebox[scale]" value="'.$settings['scale'].'" />';
+		echo '<div id="critique-nonce">';
+			wp_nonce_field( 'critique-metabox' );
+		echo '</div>';
+		echo '<input type="hidden" name="critique_scorebox[scale]" value="'.esc_attr($settings['scale']).'" />';
 	}
 
 	public function post_more_link($link){
@@ -225,7 +241,7 @@ class critique {
 		// Load the data (and skip everything else if it's not there) and add the overall average is settings dictate
     	$critique = json_decode(get_post_meta($post_id,'critique_score',true),true);
 		// Determine the overall if enabled and add if it is
- 		if($this->settings['add_average']=='on'&&count($critique['review'])>1){
+ 		if($this->settings['add_average']=='on'&&is_countable($critique['review'])&&count($critique['review'])>1){
  			$total_score = 0;
  			foreach($critique['review'] as $section => $score){
  				if(trim($score=='')){
@@ -269,7 +285,7 @@ class critique {
 						// This is not an else if because if more options come up there probably each me there own thing, not all or nothing.
 						$display_block = true;
 						if(!is_singular()){
-			 				if($this->settings['add_average']=='on'&&count($critique['review'])>1&&$this->settings['show_options']=='overall_in_short'){
+			 				if($this->settings['add_average']=='on'&&is_countable($critique['review'])&&count($critique['review'])>1&&$this->settings['show_options']=='overall_in_short'){
 			 					$section = 0;
 			 					$sections = count($critique['review']);
 			 					foreach($critique['review'] as $k => $v){
@@ -291,11 +307,11 @@ class critique {
 						echo '<meta itemprop="name" content="'.get_the_author().'" />';
 					echo '</div>';
 					echo '<div itemprop="itemReviewed" itemscope itemtype="http://schema.org/Thing">';
-						echo '<meta itemprop="name" content="'.get_the_title().'" />';
+						echo '<meta itemprop="name" content="'.esc_attr(get_the_title()).'" />';
 					echo '</div>';
 					echo '<div itemprop="reviewRating" itemscope itemtype="http://schema.org/Rating">';
 						echo '<meta itemprop="worstRating" content="0">';
-						echo '<meta itemprop="ratingValue" content="'.$critique['review']['Overall'].'">';
+						echo '<meta itemprop="ratingValue" content="'.esc_attr($critique['review']['Overall']).'">';
 						echo '<meta itemprop="bestRating" content="'.($critique['scale']=='5-stars'?'5':'100').'">';
 					echo '</div>';
 				echo '</div>';
@@ -304,11 +320,11 @@ class critique {
 			// Display the block
 			if($display_block){
 				?>
-				<div class="critique-display-wrapper <?= $post_type ?> type-<?= $critique['scale'] ?>">
+				<div class="critique-display-wrapper <?php echo esc_attr($post_type) ?> type-<?php echo esc_attr($critique['scale']) ?>">
 					<ul id="critique-display">
 						<?php foreach($critique['review'] as $scale => $value){ ?>
 							<li class="critique-row">
-								<span class="critique-title"><?= trim(($scale=='0'?'':$scale)) ?></span>
+								<span class="critique-title"><?php echo esc_attr(trim(($scale=='0'?'':$scale))) ?></span>
 									<?php switch($critique['scale']){
 										case '5-stars':
 											for($star=1;$star<=$this->scales[$critique['scale']]['max'];$star++){
@@ -318,18 +334,18 @@ class critique {
 												}else if($critique['review'][$scale]-$star>=-0.5){
 													$class_mod = 'half';
 												}
-												echo '<i class="star icon-star '.$class_mod.'"></i>';
+												echo '<i class="star icon-star '.esc_attr($class_mod).'"></i>';
 											}
 										break;
 										case 'out-of-100':
-											echo '<i class="out-of-100-bar"><b style="width:'.($critique['review'][$scale]).'%;"></b></i>';
+											echo '<i class="out-of-100-bar"><b style="width:'.esc_attr($critique['review'][$scale]).'%;"></b></i>';
 										break;
 										default:
-											echo 'No scale display code found for "'.$critique['scale'].'" but it is a '.$critique['review'][$scale].'.';
+											echo 'No scale display code found for "'.esc_html($critique['scale']).'" but it is a '.esc_html($critique['review'][$scale]).'.';
 										break;
 									} ?>
 								</span>
-								<span class="critique-numeric"><?= $value ?><i>/<?= $this->scales[$critique['scale']]['max'] ?></i></span>
+								<span class="critique-numeric"><?php echo esc_html($value) ?><i>/<?php echo esc_html($this->scales[$critique['scale']]['max']) ?></i></span>
 							</li>
 						<?php } ?>
 					</ul>
@@ -360,12 +376,18 @@ class critique {
  		return $post;
 	}
 
-	public function save_metabox($post_id){
-		// Save the critique metabox (if data is sent)
-		if(isset($_POST['critique_action'])&&$_POST['critique_action']!=''){
-			update_post_meta($post_id,'critique_score',json_encode($_POST['critique_scorebox']));
+	public function save_metabox($post_id, $post, $update){
+		if( isset($_POST['_nonce']) && wp_verify_nonce( sanitize_text_field(wp_unslash($_POST['_nonce'])), 'critique-metabox' ) ){
+			if( isset($_POST['critique_action']) && $_POST['critique_action']==='ajax_save' ){
+				$post_id = isset($_POST['post_id']) ? sanitize_text_field(wp_unslash($_POST['post_id'])) : -1;
+				unset($_POST['post_id']);
+				unset($_POST['critique_action']);
+				unset($_POST['_nonce']);
+				unset($_POST['_ref']);
+				update_post_meta( $post_id, 'critique_score', json_encode($_POST));
+			}
 		}
-	}
+}
 
 	public function critique_score_shortcode($attributes){
 		// Check for a provided post ID, if one is not provided then use the post global, if it is passed make sure it registers as an int.
